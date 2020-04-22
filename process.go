@@ -1,7 +1,6 @@
 package subrpc
 
 import (
-	"flag"
 	"net"
 	"os"
 
@@ -16,13 +15,12 @@ type Process struct {
 }
 
 // NewProcess function
-func NewProcess() *Process {
+func NewProcess(socket string) *Process {
 	p := &Process{
 		Env:      os.Environ(),
-		SockPath: "",
+		SockPath: socket,
 		RPC:      rpc.NewServer(),
 	}
-	flag.StringVar(&p.SockPath, "socket", "", "UNIX socket to bind to")
 	return p
 }
 
