@@ -157,10 +157,14 @@ func (m *Manager) supervise(proc *ProcessInfo) {
 			proc.CMD.Stop()
 			return
 		case <-proc.StatusChan:
-			m.StartProcess(proc.Name)
+			m.RestartProcess(proc.Name)
 			return
-
 		default:
+			st := proc.CMD.Status()
+			if st.Complete == false && st.Error != nil {
+				m.RestartProcess(proc.Name)
+				return
+			}
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
