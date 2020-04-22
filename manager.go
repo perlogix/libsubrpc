@@ -166,7 +166,7 @@ func (m *Manager) log(proc *ProcessInfo) {
 }
 
 // Call function calls an RPC service with the supplied "name:function" string
-func (m *Manager) Call(urn string, dst interface{}, args ...interface{}) error {
+func (m *Manager) Call(urn string, dst *interface{}, args ...interface{}) error {
 	u := strings.Split(urn, ":")
 	if len(u) != 2 {
 		return fmt.Errorf("URN must be in format <name>:<function>")
