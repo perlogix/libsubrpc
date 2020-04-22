@@ -10,7 +10,7 @@ import (
 
 // Process type represents an RPC service
 type Process struct {
-	SockPath *string
+	SockPath string
 	Env      []string
 	RPC      *rpc.Server
 }
@@ -19,15 +19,16 @@ type Process struct {
 func NewProcess() *Process {
 	p := &Process{
 		Env:      os.Environ(),
-		SockPath: *flag.String("socket", "", "Sets the socket to listen on"),
+		SockPath: "",
 		RPC:      rpc.NewServer(),
 	}
+	flag.StringVar(&p.SockPath, "socket", "", "UNIX socket to bind to")
 	return p
 }
 
 // Start starts a new process instance
 func (p *Process) Start() error {
-	conn, err := net.Listen("unix", *p.SockPath)
+	conn, err := net.Listen("unix", p.SockPath)
 	if err != nil {
 		return err
 	}
