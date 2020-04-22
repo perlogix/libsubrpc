@@ -12,6 +12,7 @@ type ProcessOptions struct {
 	ExePath  string
 	SockPath string
 	Env      []string
+	//Flags    map[string]string
 }
 
 // ProcessInfo holds information about running processes
