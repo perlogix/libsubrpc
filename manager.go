@@ -112,6 +112,7 @@ func (m *Manager) RestartProcess(name string) error {
 		if err != nil {
 			return err
 		}
+		return nil
 	}
 	return fmt.Errorf("process with name %s does not exist", name)
 }
