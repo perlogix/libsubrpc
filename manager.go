@@ -52,12 +52,6 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			SockPath: o.SockPath,
 		}
 		m.Procs[o.Name].CMD.Env = append(m.Procs[o.Name].CMD.Env, o.Env...)
-		for i := 0; i <= 10; i++ {
-			if m.Procs[o.Name].CMD.Status().StartTs != 0 {
-				break
-			}
-			time.Sleep(500 * time.Millisecond)
-		}
 	}
 	return nil
 }
@@ -68,6 +62,12 @@ func (m *Manager) StartProcess(name string) error {
 		if !p.Running {
 			var err error
 			p.StatusChan = p.CMD.Start()
+			for i := 0; i <= 10; i++ {
+				if p.CMD.Status().StartTs != 0 {
+					break
+				}
+				time.Sleep(250 * time.Millisecond)
+			}
 			p.PID = p.CMD.Status().PID
 			p.Running = true
 			p.RPC, err = rpc.Dial(p.SockPath)
