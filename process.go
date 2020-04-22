@@ -24,6 +24,7 @@ func NewProcess() *Process {
 		SockPath: *s,
 		RPC:      rpc.NewServer(),
 	}
+	p.RPC.RegisterName("ping", rpcPing)
 	return p
 }
 
