@@ -103,14 +103,12 @@ func (m *Manager) StartAllProcess() []error {
 // RestartProcess restarts a process
 func (m *Manager) RestartProcess(name string) error {
 	if p, ok := m.Procs[name]; ok {
-		if p.Running {
-			err := m.StopProcess(name)
-			if err != nil {
-				return err
-			}
+		err := m.StopProcess(name)
+		if err != nil {
+			return err
 		}
 		p.CMD = p.CMD.Clone()
-		err := m.StartProcess(name)
+		err = m.StartProcess(name)
 		if err != nil {
 			return err
 		}
