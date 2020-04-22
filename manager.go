@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-cmd/cmd"
 	"github.com/google/uuid"
-	"github.com/valyala/gorpc"
+	"github.com/ybbus/jsonrpc"
 )
 
 // Manager type instantiates a new Manager instance
@@ -63,9 +63,7 @@ func (m *Manager) StartProcess(name string) error {
 			p.StatusChan = p.CMD.Start()
 			p.PID = p.CMD.Status().PID
 			p.Running = true
-			p.RPC = gorpc.NewUnixClient(p.SockPath)
-			p.RPC.Start()
-			p.RPCClient = gorpc.NewDispatcher().NewFuncClient(p.RPC)
+			p.RPC = jsonrpc.NewClient("unix://" + p.SockPath)
 			go m.supervise(p)
 			go m.log(p)
 			return nil
@@ -100,7 +98,6 @@ func (m *Manager) RestartProcess(name string) error {
 			}
 		}
 		p.CMD = p.CMD.Clone()
-		p.RPC.Stop()
 		err := m.StartProcess(name)
 		if err != nil {
 			return err
@@ -164,17 +161,21 @@ func (m *Manager) log(proc *ProcessInfo) {
 }
 
 // Call function calls an RPC service with the supplied "name:function" string
-func (m *Manager) Call(urn string, args ...interface{}) ([]byte, error) {
+func (m *Manager) Call(urn string, dst interface{}, args ...interface{}) error {
 	u := strings.Split(urn, ":")
 	if len(u) != 2 {
-		return nil, fmt.Errorf("URN must be in format <name>:<function>")
+		return fmt.Errorf("URN must be in format <name>:<function>")
 	}
 	if p, ok := m.Procs[u[0]]; ok {
-		res, err := p.RPCClient.Call(u[0], args)
+		res, err := p.RPC.Call(u[1], args...)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		return res.([]byte), err
+		err = res.GetObject(dst)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
-	return nil, fmt.Errorf("service with name %s does not exist", u[0])
+	return fmt.Errorf("service with name %s does not exist", u[0])
 }
