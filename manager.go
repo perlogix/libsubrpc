@@ -121,16 +121,13 @@ func (m *Manager) RestartProcess(name string) error {
 // StopProcess stopps a process by name
 func (m *Manager) StopProcess(name string) error {
 	if p, ok := m.Procs[name]; ok {
-		if p.Running {
-			p.RPC.Close()
-			p.Terminate <- true
-			err := os.Remove(p.SockPath)
-			if err != nil {
-				return err
-			}
-			return nil
+		p.RPC.Close()
+		p.Terminate <- true
+		err := os.Remove(p.SockPath)
+		if err != nil {
+			return err
 		}
-		return fmt.Errorf("process %s is not running, cannot stop", name)
+		return nil
 	}
 	return fmt.Errorf("process with name %s does not exist", name)
 }
