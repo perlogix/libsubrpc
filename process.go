@@ -22,13 +22,13 @@ func NewProcess() *Process {
 		SockPath:    *flag.String("socket", "", "Sets the socket to listen on"),
 		RPCDispatch: gorpc.NewDispatcher(),
 	}
-	p.server = gorpc.NewUnixServer(p.SockPath, p.RPCDispatch.NewHandlerFunc())
 	p.RPCDispatch.AddFunc("ping", rpcPing)
 	return p
 }
 
 // Start starts a new process instance
 func (p *Process) Start() {
+	p.server = gorpc.NewUnixServer(p.SockPath, p.RPCDispatch.NewHandlerFunc())
 	p.server.Serve()
 }
 
