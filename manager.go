@@ -172,7 +172,7 @@ func (m *Manager) Call(urn string, dst interface{}, args ...interface{}) error {
 		return fmt.Errorf("URN must be in format <name>:<function>")
 	}
 	if p, ok := m.Procs[u[0]]; ok {
-		err := p.RPC.Call(&dst, u[1], args...)
+		err := p.RPC.Call(dst, u[1], args...)
 		if err != nil {
 			return err
 		}
