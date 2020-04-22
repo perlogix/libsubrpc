@@ -3,10 +3,12 @@ package subrpc
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-cmd/cmd"
 	"github.com/google/uuid"
+	"github.com/valyala/gorpc"
 )
 
 // Manager type instantiates a new Manager instance
@@ -46,9 +48,10 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			CMD: cmd.NewCmdOptions(cmd.Options{
 				Buffered:  false,
 				Streaming: true,
-			}, o.ExePath, "--socket", o.SockPath),
+			}, o.ExePath, "-socket", o.SockPath),
 			SockPath: o.SockPath,
 		}
+		m.Procs[o.Name].CMD.Env = append(m.Procs[o.Name].CMD.Env, o.Env...)
 	}
 	return nil
 }
@@ -60,6 +63,9 @@ func (m *Manager) StartProcess(name string) error {
 			p.StatusChan = p.CMD.Start()
 			p.PID = p.CMD.Status().PID
 			p.Running = true
+			p.RPC = gorpc.NewUnixClient(p.SockPath)
+			p.RPC.Start()
+			p.RPCClient = gorpc.NewDispatcher().NewFuncClient(p.RPC)
 			go m.supervise(p)
 			go m.log(p)
 			return nil
@@ -70,21 +76,41 @@ func (m *Manager) StartProcess(name string) error {
 }
 
 // StartAllProcess starts all procs in the manager
-func (m *Manager) StartAllProcess() error {
+func (m *Manager) StartAllProcess() []error {
+	errs := []error{}
 	for _, v := range m.Procs {
-		if !v.Running {
-			v.StatusChan = v.CMD.Start()
-			v.PID = v.CMD.Status().PID
-			v.Running = true
-			go m.supervise(v)
-			go m.log(v)
+		err := m.StartProcess(v.Name)
+		if err != nil {
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	if len(errs) == 0 {
+		return nil
+	}
+	return errs
 }
 
-// Stop stopps a process by name
-func (m *Manager) Stop(name string) error {
+// RestartProcess restarts a process
+func (m *Manager) RestartProcess(name string) error {
+	if p, ok := m.Procs[name]; ok {
+		if p.Running {
+			err := m.StopProcess(name)
+			if err != nil {
+				return err
+			}
+		}
+		p.CMD = p.CMD.Clone()
+		p.RPC.Stop()
+		err := m.StartProcess(name)
+		if err != nil {
+			return err
+		}
+	}
+	return fmt.Errorf("process with name %s does not exist", name)
+}
+
+// StopProcess stopps a process by name
+func (m *Manager) StopProcess(name string) error {
 	if p, ok := m.Procs[name]; ok {
 		if p.Running {
 			p.Terminate <- true
@@ -131,6 +157,24 @@ func (m *Manager) log(proc *ProcessInfo) {
 			if err != nil {
 				fmt.Println(err)
 			}
+		case <-proc.Terminate:
+			return
 		}
 	}
+}
+
+// Call function calls an RPC service with the supplied "name:function" string
+func (m *Manager) Call(urn string, args ...interface{}) ([]byte, error) {
+	u := strings.Split(urn, ":")
+	if len(u) != 2 {
+		return nil, fmt.Errorf("URN must be in format <name>:<function>")
+	}
+	if p, ok := m.Procs[u[0]]; ok {
+		res, err := p.RPCClient.Call(u[0], args)
+		if err != nil {
+			return nil, err
+		}
+		return res.([]byte), err
+	}
+	return nil, fmt.Errorf("service with name %s does not exist", u[0])
 }
