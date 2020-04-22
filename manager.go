@@ -3,6 +3,7 @@ package subrpc
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -122,6 +123,10 @@ func (m *Manager) StopProcess(name string) error {
 		if p.Running {
 			p.RPC.Close()
 			p.Terminate <- true
+			err := os.Remove(p.SockPath)
+			if err != nil {
+				return err
+			}
 			return nil
 		}
 		return fmt.Errorf("process %s is not running, cannot stop", name)
@@ -130,7 +135,7 @@ func (m *Manager) StopProcess(name string) error {
 }
 
 // StopAll stopps all procs
-func (m *Manager) StopAll(name string) {
+func (m *Manager) StopAll() {
 	for _, p := range m.Procs {
 		p.Terminate <- true
 	}
@@ -139,12 +144,13 @@ func (m *Manager) StopAll(name string) {
 func (m *Manager) supervise(proc *ProcessInfo) {
 	for {
 		select {
-		case <-proc.StatusChan:
-			m.StartProcess(proc.Name)
-			return
 		case <-proc.Terminate:
 			proc.CMD.Stop()
 			return
+		case <-proc.StatusChan:
+			m.StartProcess(proc.Name)
+			return
+
 		default:
 			time.Sleep(100 * time.Millisecond)
 		}
@@ -155,6 +161,8 @@ func (m *Manager) log(proc *ProcessInfo) {
 	t := time.NewTicker(100 * time.Millisecond)
 	for range t.C {
 		select {
+		case <-proc.Terminate:
+			return
 		case line := <-proc.CMD.Stdout:
 			_, err := m.OutBuffer.WriteString(line)
 			if err != nil {
@@ -165,8 +173,6 @@ func (m *Manager) log(proc *ProcessInfo) {
 			if err != nil {
 				fmt.Println(err)
 			}
-		case <-proc.Terminate:
-			return
 		}
 	}
 }
