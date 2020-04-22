@@ -24,7 +24,7 @@ func NewProcess() *Process {
 		SockPath: *s,
 		RPC:      rpc.NewServer(),
 	}
-	p.RPC.RegisterName("ping", rpcPing)
+	p.RPC.RegisterName("ping", new(rpcPing))
 	return p
 }
 
@@ -42,6 +42,8 @@ func (p *Process) AddFunction(name string, f interface{}) error {
 	return p.RPC.RegisterName(name, f)
 }
 
-func rpcPing() string {
+type rpcPing struct{}
+
+func (r *rpcPing) Ping() string {
 	return "pong"
 }
