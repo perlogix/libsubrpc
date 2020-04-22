@@ -52,6 +52,12 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			SockPath: o.SockPath,
 		}
 		m.Procs[o.Name].CMD.Env = append(m.Procs[o.Name].CMD.Env, o.Env...)
+		for {
+			if m.Procs[o.Name].CMD.Status().StartTs != 0 {
+				break
+			}
+			time.Sleep(1 * time.Second)
+		}
 	}
 	return nil
 }
