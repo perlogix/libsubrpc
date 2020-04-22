@@ -2,39 +2,41 @@ package subrpc
 
 import (
 	"flag"
+	"net"
 	"os"
 
-	"github.com/valyala/gorpc"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 // Process type represents an RPC service
 type Process struct {
-	SockPath    string
-	Env         []string
-	RPCDispatch *gorpc.Dispatcher
-	server      *gorpc.Server
+	SockPath string
+	Env      []string
+	RPC      *rpc.Server
 }
 
 // NewProcess function
 func NewProcess() *Process {
 	p := &Process{
-		Env:         os.Environ(),
-		SockPath:    *flag.String("socket", "", "Sets the socket to listen on"),
-		RPCDispatch: gorpc.NewDispatcher(),
+		Env:      os.Environ(),
+		SockPath: *flag.String("socket", "", "Sets the socket to listen on"),
+		RPC:      rpc.NewServer(),
 	}
-	p.RPCDispatch.AddFunc("ping", rpcPing)
 	return p
 }
 
 // Start starts a new process instance
-func (p *Process) Start() {
-	p.server = gorpc.NewUnixServer(p.SockPath, p.RPCDispatch.NewHandlerFunc())
-	p.server.Serve()
+func (p *Process) Start() error {
+	conn, err := net.Listen("unix", p.SockPath)
+	if err != nil {
+		return err
+	}
+	return p.RPC.ServeListener(conn)
 }
 
 // AddFunction adds a function to the RPC handler
-func (p *Process) AddFunction(name string, f interface{}) {
-	p.RPCDispatch.AddFunc(name, f)
+func (p *Process) AddFunction(name string, f interface{}) error {
+	return p.RPC.RegisterName(name, f)
 }
 
 func rpcPing() string {

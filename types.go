@@ -1,8 +1,8 @@
 package subrpc
 
 import (
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-cmd/cmd"
-	"github.com/ybbus/jsonrpc"
 )
 
 // ProcessOptions allows for passing process options to NewProcess
@@ -25,5 +25,5 @@ type ProcessInfo struct {
 	Terminate  chan bool
 	PID        int
 	SockPath   string
-	RPC        jsonrpc.RPCClient
+	RPC        *rpc.Client
 }

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-cmd/cmd"
 	"github.com/google/uuid"
-	"github.com/ybbus/jsonrpc"
 )
 
 // Manager type instantiates a new Manager instance
@@ -60,10 +60,14 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 func (m *Manager) StartProcess(name string) error {
 	if p, ok := m.Procs[name]; ok {
 		if !p.Running {
+			var err error
 			p.StatusChan = p.CMD.Start()
 			p.PID = p.CMD.Status().PID
 			p.Running = true
-			p.RPC = jsonrpc.NewClient("unix://" + p.SockPath)
+			p.RPC, err = rpc.Dial(p.SockPath)
+			if err != nil {
+				return err
+			}
 			go m.supervise(p)
 			go m.log(p)
 			return nil
@@ -110,6 +114,7 @@ func (m *Manager) RestartProcess(name string) error {
 func (m *Manager) StopProcess(name string) error {
 	if p, ok := m.Procs[name]; ok {
 		if p.Running {
+			p.RPC.Close()
 			p.Terminate <- true
 			return nil
 		}
@@ -167,11 +172,7 @@ func (m *Manager) Call(urn string, dst interface{}, args ...interface{}) error {
 		return fmt.Errorf("URN must be in format <name>:<function>")
 	}
 	if p, ok := m.Procs[u[0]]; ok {
-		res, err := p.RPC.Call(u[1], args...)
-		if err != nil {
-			return err
-		}
-		err = res.GetObject(dst)
+		err := p.RPC.Call(&dst, u[1], args...)
 		if err != nil {
 			return err
 		}
