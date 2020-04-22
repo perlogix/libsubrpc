@@ -50,7 +50,8 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 				Buffered:  false,
 				Streaming: true,
 			}, o.ExePath, "-socket", o.SockPath),
-			SockPath: o.SockPath,
+			SockPath:  o.SockPath,
+			Terminate: make(chan bool),
 		}
 		m.Procs[o.Name].CMD.Env = append(m.Procs[o.Name].CMD.Env, o.Env...)
 	}
@@ -135,10 +136,18 @@ func (m *Manager) StopProcess(name string) error {
 }
 
 // StopAll stopps all procs
-func (m *Manager) StopAll() {
+func (m *Manager) StopAll() []error {
+	errs := []error{}
 	for _, p := range m.Procs {
-		p.Terminate <- true
+		err := m.StopProcess(p.Name)
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
+	if len(errs) != 0 {
+		return errs
+	}
+	return nil
 }
 
 func (m *Manager) supervise(proc *ProcessInfo) {
