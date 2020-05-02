@@ -8,6 +8,7 @@ import (
 // ProcessOptions allows for passing process options to NewProcess
 type ProcessOptions struct {
 	Name     string
+	Type     string
 	Handler  interface{}
 	ExePath  string
 	SockPath string
@@ -18,6 +19,7 @@ type ProcessOptions struct {
 // ProcessInfo holds information about running processes
 type ProcessInfo struct {
 	Name       string
+	Type       string
 	Handler    interface{}
 	CMD        *cmd.Cmd
 	Options    ProcessOptions

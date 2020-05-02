@@ -15,7 +15,7 @@ import (
 // Manager type instantiates a new Manager instance
 type Manager struct {
 	SockPath  string
-	Procs     map[string]*ProcessInfo
+	Procs     map[string]map[string]*ProcessInfo
 	OutBuffer *bytes.Buffer
 	ErrBuffer *bytes.Buffer
 }
@@ -24,7 +24,7 @@ type Manager struct {
 func NewManager() *Manager {
 	return &Manager{
 		SockPath:  fmt.Sprintf("/tmp/rpc-%s", uuid.New().String()),
-		Procs:     map[string]*ProcessInfo{},
+		Procs:     map[string]map[string]*ProcessInfo{},
 		OutBuffer: bytes.NewBuffer([]byte{}),
 		ErrBuffer: bytes.NewBuffer([]byte{}),
 	}
@@ -42,7 +42,7 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 		if o.SockPath == "" {
 			o.SockPath = fmt.Sprintf("/tmp/rpc-%s", uuid.New().String())
 		}
-		m.Procs[o.Name] = &ProcessInfo{
+		m.Procs[o.Type][o.Name] = &ProcessInfo{
 			Name:    o.Name,
 			Options: o,
 			Running: false,
@@ -53,14 +53,14 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			SockPath:  o.SockPath,
 			Terminate: make(chan bool),
 		}
-		m.Procs[o.Name].CMD.Env = append(m.Procs[o.Name].CMD.Env, o.Env...)
+		m.Procs[o.Type][o.Name].CMD.Env = append(m.Procs[o.Type][o.Name].CMD.Env, o.Env...)
 	}
 	return nil
 }
 
 // StartProcess starts all of the sub processes
-func (m *Manager) StartProcess(name string) error {
-	if p, ok := m.Procs[name]; ok {
+func (m *Manager) StartProcess(name string, typ string) error {
+	if p, ok := m.Procs[typ][name]; ok {
 		if !p.Running {
 			var err error
 			p.StatusChan = p.CMD.Start()
@@ -88,10 +88,12 @@ func (m *Manager) StartProcess(name string) error {
 // StartAllProcess starts all procs in the manager
 func (m *Manager) StartAllProcess() []error {
 	errs := []error{}
-	for _, v := range m.Procs {
-		err := m.StartProcess(v.Name)
-		if err != nil {
-			errs = append(errs, err)
+	for k, v := range m.Procs {
+		for _, j := range v {
+			err := m.StartProcess(j.Name, k)
+			if err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 	if len(errs) == 0 {
@@ -101,14 +103,14 @@ func (m *Manager) StartAllProcess() []error {
 }
 
 // RestartProcess restarts a process
-func (m *Manager) RestartProcess(name string) error {
-	if p, ok := m.Procs[name]; ok {
-		err := m.StopProcess(name)
+func (m *Manager) RestartProcess(name string, typ string) error {
+	if p, ok := m.Procs[typ][name]; ok {
+		err := m.StopProcess(name, typ)
 		if err != nil {
 			return err
 		}
 		p.CMD = p.CMD.Clone()
-		err = m.StartProcess(name)
+		err = m.StartProcess(name, typ)
 		if err != nil {
 			return err
 		}
@@ -118,8 +120,8 @@ func (m *Manager) RestartProcess(name string) error {
 }
 
 // StopProcess stopps a process by name
-func (m *Manager) StopProcess(name string) error {
-	if p, ok := m.Procs[name]; ok {
+func (m *Manager) StopProcess(name string, typ string) error {
+	if p, ok := m.Procs[typ][name]; ok {
 		p.Running = false
 		p.RPC.Close()
 		p.Terminate <- true
@@ -135,10 +137,12 @@ func (m *Manager) StopProcess(name string) error {
 // StopAll stopps all procs
 func (m *Manager) StopAll() []error {
 	errs := []error{}
-	for _, p := range m.Procs {
-		err := m.StopProcess(p.Name)
-		if err != nil {
-			errs = append(errs, err)
+	for k, v := range m.Procs {
+		for _, j := range v {
+			err := m.StopProcess(j.Name, k)
+			if err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 	if len(errs) != 0 {
@@ -154,7 +158,7 @@ func (m *Manager) supervise(proc *ProcessInfo) {
 			proc.CMD.Stop()
 			return
 		case <-proc.StatusChan:
-			err := m.RestartProcess(proc.Name)
+			err := m.RestartProcess(proc.Name, proc.Type)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -162,7 +166,7 @@ func (m *Manager) supervise(proc *ProcessInfo) {
 		default:
 			st := proc.CMD.Status()
 			if st.Complete == false && st.Error != nil {
-				err := m.RestartProcess(proc.Name)
+				err := m.RestartProcess(proc.Name, proc.Type)
 				if err != nil {
 					fmt.Println(err)
 				}
@@ -197,10 +201,10 @@ func (m *Manager) log(proc *ProcessInfo) {
 func (m *Manager) Call(urn string, dst interface{}, args ...interface{}) error {
 	u := strings.Split(urn, ":")
 	if len(u) != 2 {
-		return fmt.Errorf("URN must be in format <name>:<function>")
+		return fmt.Errorf("URN must be in format <type>:<name>:<function>")
 	}
-	if p, ok := m.Procs[u[0]]; ok {
-		err := p.RPC.Call(&dst, u[1], args...)
+	if p, ok := m.Procs[u[0]][u[1]]; ok {
+		err := p.RPC.Call(&dst, u[2], args...)
 		if err != nil {
 			return err
 		}
