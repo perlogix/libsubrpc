@@ -20,6 +20,14 @@ type Manager struct {
 	Procs     map[string]map[string]*ProcessInfo
 	OutBuffer *bytes.Buffer
 	ErrBuffer *bytes.Buffer
+	Metrics   chan Metrics
+}
+
+// Metrics type
+type Metrics struct {
+	URN      string
+	CallTime time.Duration
+	Error    bool
 }
 
 // NewManager function returns a new instance of the Manager object
@@ -29,6 +37,7 @@ func NewManager() *Manager {
 		Procs:     make(map[string]map[string]*ProcessInfo),
 		OutBuffer: bytes.NewBuffer([]byte{}),
 		ErrBuffer: bytes.NewBuffer([]byte{}),
+		Metrics:   make(chan Metrics, 1024),
 	}
 }
 
