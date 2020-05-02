@@ -1,6 +1,8 @@
 package subrpc
 
 import (
+	"encoding/json"
+
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-cmd/cmd"
 )
@@ -9,6 +11,7 @@ import (
 type ProcessOptions struct {
 	Name     string
 	Type     string
+	Config   json.RawMessage
 	Handler  interface{}
 	ExePath  string
 	SockPath string
@@ -20,6 +23,7 @@ type ProcessOptions struct {
 type ProcessInfo struct {
 	Name       string
 	Type       string
+	Config     json.RawMessage
 	Handler    interface{}
 	CMD        *cmd.Cmd
 	Options    ProcessOptions

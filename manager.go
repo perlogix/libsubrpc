@@ -49,7 +49,7 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			CMD: cmd.NewCmdOptions(cmd.Options{
 				Buffered:  false,
 				Streaming: true,
-			}, o.ExePath, "-socket", o.SockPath),
+			}, o.ExePath, "-socket", o.SockPath, "-config", string(o.Config)),
 			SockPath:  o.SockPath,
 			Terminate: make(chan bool),
 		}
