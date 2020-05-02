@@ -48,6 +48,9 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 		if err != nil {
 			return err
 		}
+		if _, ok := m.Procs[o.Type]; !ok {
+			m.Procs[o.Type] = map[string]*ProcessInfo{}
+		}
 		m.Procs[o.Type][o.Name] = &ProcessInfo{
 			Name:    o.Name,
 			Options: o,
