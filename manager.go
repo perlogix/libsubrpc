@@ -209,7 +209,7 @@ func (m *Manager) log(proc *ProcessInfo) {
 // Call function calls an RPC service with the supplied "name:function" string
 func (m *Manager) Call(urn string, dst interface{}, args ...interface{}) error {
 	u := strings.Split(urn, ":")
-	if len(u) != 2 {
+	if len(u) != 3 {
 		return fmt.Errorf("URN must be in format <type>:<name>:<function>")
 	}
 	if p, ok := m.Procs[u[0]][u[1]]; ok {
