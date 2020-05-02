@@ -217,16 +217,37 @@ func (m *Manager) log(proc *ProcessInfo) {
 
 // Call function calls an RPC service with the supplied "name:function" string
 func (m *Manager) Call(urn string, dst interface{}, args ...interface{}) error {
+	start := time.Now()
 	u := strings.Split(urn, ":")
 	if len(u) != 3 {
+		m.Metrics <- Metrics{
+			URN:      urn,
+			Error:    true,
+			CallTime: time.Now().Sub(start),
+		}
 		return fmt.Errorf("URN must be in format <type>:<name>:<function>")
 	}
 	if p, ok := m.Procs[u[0]][u[1]]; ok {
 		err := p.RPC.Call(&dst, u[2], args...)
 		if err != nil {
+			m.Metrics <- Metrics{
+				URN:      urn,
+				Error:    true,
+				CallTime: time.Now().Sub(start),
+			}
 			return err
 		}
+		m.Metrics <- Metrics{
+			URN:      urn,
+			Error:    false,
+			CallTime: time.Now().Sub(start),
+		}
 		return nil
+	}
+	m.Metrics <- Metrics{
+		URN:      urn,
+		Error:    true,
+		CallTime: time.Now().Sub(start),
 	}
 	return fmt.Errorf("service with name %s does not exist", u[0])
 }
