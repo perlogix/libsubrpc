@@ -15,12 +15,14 @@ type Process struct {
 	Config   []byte
 	Env      []string
 	RPC      *rpc.Server
+	Token    string
 }
 
 // NewProcess function
 func NewProcess() *Process {
 	s := flag.String("socket", "", "Socket to bind to")
 	c := flag.String("config", "", "Config from plugin manifest")
+	t := flag.String("token", "", "Option for passing in a trust token")
 	flag.Parse()
 	config, err := base64.StdEncoding.DecodeString(*c)
 	if err != nil {
@@ -31,6 +33,7 @@ func NewProcess() *Process {
 		SockPath: *s,
 		Config:   config,
 		RPC:      rpc.NewServer(),
+		Token:    *t,
 	}
 	p.RPC.RegisterName("ping", new(rpcPing))
 	return p

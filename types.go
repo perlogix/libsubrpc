@@ -14,7 +14,7 @@ type ProcessOptions struct {
 	ExePath  string
 	SockPath string
 	Env      []string
-	//Flags    map[string]string
+	Token    string
 }
 
 // ProcessInfo holds information about running processes
@@ -22,6 +22,7 @@ type ProcessInfo struct {
 	Name       string
 	Type       string
 	Config     map[string]interface{}
+	Token      string
 	Handler    interface{}
 	CMD        *cmd.Cmd
 	Options    ProcessOptions

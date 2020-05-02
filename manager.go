@@ -58,7 +58,7 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			CMD: cmd.NewCmdOptions(cmd.Options{
 				Buffered:  false,
 				Streaming: true,
-			}, o.ExePath, "-socket", o.SockPath, "-config", base64.StdEncoding.EncodeToString(byt)),
+			}, o.ExePath, "-socket", o.SockPath, "-config", base64.StdEncoding.EncodeToString(byt), "-token", o.Token),
 			SockPath:  o.SockPath,
 			Terminate: make(chan bool),
 		}
