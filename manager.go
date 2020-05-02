@@ -2,6 +2,8 @@ package subrpc
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -42,6 +44,10 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 		if o.SockPath == "" {
 			o.SockPath = fmt.Sprintf("/tmp/rpc-%s", uuid.New().String())
 		}
+		byt, err := json.Marshal(o.Config)
+		if err != nil {
+			return err
+		}
 		m.Procs[o.Type][o.Name] = &ProcessInfo{
 			Name:    o.Name,
 			Options: o,
@@ -49,7 +55,7 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			CMD: cmd.NewCmdOptions(cmd.Options{
 				Buffered:  false,
 				Streaming: true,
-			}, o.ExePath, "-socket", o.SockPath, "-config", string(o.Config)),
+			}, o.ExePath, "-socket", o.SockPath, "-config", base64.StdEncoding.EncodeToString(byt)),
 			SockPath:  o.SockPath,
 			Terminate: make(chan bool),
 		}

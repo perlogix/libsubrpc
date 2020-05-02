@@ -1,7 +1,7 @@
 package subrpc
 
 import (
-	"encoding/json"
+	"encoding/base64"
 	"flag"
 	"net"
 	"os"
@@ -12,7 +12,7 @@ import (
 // Process type represents an RPC service
 type Process struct {
 	SockPath string
-	Config   json.RawMessage
+	Config   []byte
 	Env      []string
 	RPC      *rpc.Server
 }
@@ -22,10 +22,14 @@ func NewProcess() *Process {
 	s := flag.String("socket", "", "Socket to bind to")
 	c := flag.String("config", "", "Config from plugin manifest")
 	flag.Parse()
+	config, err := base64.StdEncoding.DecodeString(*c)
+	if err != nil {
+		panic(err)
+	}
 	p := &Process{
 		Env:      os.Environ(),
 		SockPath: *s,
-		Config:   json.RawMessage(*c),
+		Config:   config,
 		RPC:      rpc.NewServer(),
 	}
 	p.RPC.RegisterName("ping", new(rpcPing))
