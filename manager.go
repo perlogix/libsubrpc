@@ -26,7 +26,7 @@ type Manager struct {
 func NewManager() *Manager {
 	return &Manager{
 		SockPath:  fmt.Sprintf("/tmp/rpc-%s", uuid.New().String()),
-		Procs:     map[string]map[string]*ProcessInfo{},
+		Procs:     make(map[string]map[string]*ProcessInfo),
 		OutBuffer: bytes.NewBuffer([]byte{}),
 		ErrBuffer: bytes.NewBuffer([]byte{}),
 	}
