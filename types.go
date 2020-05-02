@@ -9,7 +9,7 @@ import (
 type ProcessOptions struct {
 	Name     string
 	Type     string
-	Config   map[interface{}]interface{}
+	Config   map[string]interface{}
 	Handler  interface{}
 	ExePath  string
 	SockPath string
@@ -21,7 +21,7 @@ type ProcessOptions struct {
 type ProcessInfo struct {
 	Name       string
 	Type       string
-	Config     map[interface{}]interface{}
+	Config     map[string]interface{}
 	Handler    interface{}
 	CMD        *cmd.Cmd
 	Options    ProcessOptions
