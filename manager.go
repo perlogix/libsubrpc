@@ -35,7 +35,7 @@ type Metrics struct {
 // NewManager function returns a new instance of the Manager object
 func NewManager() (*Manager, error) {
 	m := &Manager{
-		SockPath:  fmt.Sprintf("/tmp/rpc-%s", uuid.New().String()),
+		SockPath:  fmt.Sprintf("/usr/share/rpc-%s", uuid.New().String()),
 		Procs:     make(map[string]map[string]*ProcessInfo),
 		OutBuffer: bytes.NewBuffer([]byte{}),
 		ErrBuffer: bytes.NewBuffer([]byte{}),
@@ -61,7 +61,7 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			return fmt.Errorf("exepath cannot be blank")
 		}
 		if o.SockPath == "" {
-			o.SockPath = fmt.Sprintf("/tmp/rpc-%s", uuid.New().String())
+			o.SockPath = fmt.Sprintf("/usr/share/rpc-%s", uuid.New().String())
 		}
 		byt, err := json.Marshal(o.Config)
 		if err != nil {
