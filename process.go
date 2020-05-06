@@ -17,6 +17,7 @@ type Process struct {
 	RPC        *rpc.Server
 	Token      string
 	ServerSock string
+	Srv        *rpc.Client
 }
 
 // NewProcess function
@@ -38,6 +39,11 @@ func NewProcess() *Process {
 		Token:      *t,
 		ServerSock: *u,
 	}
+	srv, err := rpc.Dial(p.ServerSock)
+	if err != nil {
+		panic(err)
+	}
+	p.Srv = srv
 	p.RPC.RegisterName("ping", new(rpcPing))
 	return p
 }
@@ -54,6 +60,15 @@ func (p *Process) Start() error {
 // AddFunction adds a function to the RPC handler
 func (p *Process) AddFunction(name string, f interface{}) error {
 	return p.RPC.RegisterName(name, f)
+}
+
+// Call function
+func (p *Process) Call(method string, dst interface{}, args ...interface{}) error {
+	err := p.Srv.Call(&dst, method, args...)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 type rpcPing struct{}
