@@ -11,11 +11,12 @@ import (
 
 // Process type represents an RPC service
 type Process struct {
-	SockPath string
-	Config   []byte
-	Env      []string
-	RPC      *rpc.Server
-	Token    string
+	SockPath   string
+	Config     []byte
+	Env        []string
+	RPC        *rpc.Server
+	Token      string
+	ServerSock string
 }
 
 // NewProcess function
@@ -23,17 +24,19 @@ func NewProcess() *Process {
 	s := flag.String("socket", "", "Socket to bind to")
 	c := flag.String("config", "", "Config from plugin manifest")
 	t := flag.String("token", "", "Option for passing in a trust token")
+	u := flag.String("serversocket", "", "Socket the server is listening on")
 	flag.Parse()
 	config, err := base64.StdEncoding.DecodeString(*c)
 	if err != nil {
 		panic(err)
 	}
 	p := &Process{
-		Env:      os.Environ(),
-		SockPath: *s,
-		Config:   config,
-		RPC:      rpc.NewServer(),
-		Token:    *t,
+		Env:        os.Environ(),
+		SockPath:   *s,
+		Config:     config,
+		RPC:        rpc.NewServer(),
+		Token:      *t,
+		ServerSock: *u,
 	}
 	p.RPC.RegisterName("ping", new(rpcPing))
 	return p

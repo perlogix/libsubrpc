@@ -4,7 +4,10 @@ import "testing"
 
 // TestNewManager func
 func TestNewManager(t *testing.T) {
-	m := NewManager()
+	m, err := NewManager()
+	if err != nil {
+		t.Error(err)
+	}
 	if m.SockPath == "" {
 		t.Error("SockPath not set")
 	}

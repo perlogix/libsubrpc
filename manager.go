@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ type Manager struct {
 	OutBuffer *bytes.Buffer
 	ErrBuffer *bytes.Buffer
 	Metrics   chan Metrics
+	RPC       *rpc.Server
 }
 
 // Metrics type
@@ -31,14 +33,22 @@ type Metrics struct {
 }
 
 // NewManager function returns a new instance of the Manager object
-func NewManager() *Manager {
-	return &Manager{
+func NewManager() (*Manager, error) {
+	m := &Manager{
 		SockPath:  fmt.Sprintf("/tmp/rpc-%s", uuid.New().String()),
 		Procs:     make(map[string]map[string]*ProcessInfo),
 		OutBuffer: bytes.NewBuffer([]byte{}),
 		ErrBuffer: bytes.NewBuffer([]byte{}),
 		Metrics:   make(chan Metrics, 1024),
+		RPC:       rpc.NewServer(),
 	}
+	conn, err := net.Listen("unix", m.SockPath)
+	if err != nil {
+		return nil, err
+	}
+	go m.RPC.ServeListener(conn)
+	m.RPC.RegisterName("ping", new(ManagerService))
+	return m, nil
 }
 
 // NewProcess instantiates new processes
@@ -67,7 +77,7 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			CMD: cmd.NewCmdOptions(cmd.Options{
 				Buffered:  false,
 				Streaming: true,
-			}, o.ExePath, "-socket", o.SockPath, "-config", base64.StdEncoding.EncodeToString(byt), "-token", o.Token),
+			}, o.ExePath, "-socket", o.SockPath, "-serversocket", m.SockPath, "-config", base64.StdEncoding.EncodeToString(byt), "-token", o.Token),
 			SockPath:  o.SockPath,
 			Terminate: make(chan bool),
 		}
@@ -250,4 +260,12 @@ func (m *Manager) Call(urn string, dst interface{}, args ...interface{}) error {
 		CallTime: time.Now().Sub(start),
 	}
 	return fmt.Errorf("service with name %s does not exist", u[0])
+}
+
+// ManagerService type
+type ManagerService struct{}
+
+// Ping function
+func (ms *ManagerService) Ping() string {
+	return "pong"
 }
