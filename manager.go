@@ -17,12 +17,13 @@ import (
 
 // Manager type instantiates a new Manager instance
 type Manager struct {
-	SockPath  string
-	Procs     map[string]map[string]*ProcessInfo
-	OutBuffer *bytes.Buffer
-	ErrBuffer *bytes.Buffer
-	Metrics   chan Metrics
-	RPC       *rpc.Server
+	SockPath   string
+	sockPrefix string
+	Procs      map[string]map[string]*ProcessInfo
+	OutBuffer  *bytes.Buffer
+	ErrBuffer  *bytes.Buffer
+	Metrics    chan Metrics
+	RPC        *rpc.Server
 }
 
 // Metrics type
@@ -33,14 +34,15 @@ type Metrics struct {
 }
 
 // NewManager function returns a new instance of the Manager object
-func NewManager() (*Manager, error) {
+func NewManager(sockPrefix string) (*Manager, error) {
 	m := &Manager{
-		SockPath:  fmt.Sprintf("/usr/share/rpc-%s", uuid.New().String()),
-		Procs:     make(map[string]map[string]*ProcessInfo),
-		OutBuffer: bytes.NewBuffer([]byte{}),
-		ErrBuffer: bytes.NewBuffer([]byte{}),
-		Metrics:   make(chan Metrics, 1024),
-		RPC:       rpc.NewServer(),
+		sockPrefix: sockPrefix,
+		SockPath:   fmt.Sprintf(sockPrefix+"rpc-%s", uuid.New().String()),
+		Procs:      make(map[string]map[string]*ProcessInfo),
+		OutBuffer:  bytes.NewBuffer([]byte{}),
+		ErrBuffer:  bytes.NewBuffer([]byte{}),
+		Metrics:    make(chan Metrics, 1024),
+		RPC:        rpc.NewServer(),
 	}
 	conn, err := net.Listen("unix", m.SockPath)
 	if err != nil {
@@ -61,7 +63,7 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			return fmt.Errorf("exepath cannot be blank")
 		}
 		if o.SockPath == "" {
-			o.SockPath = fmt.Sprintf("/usr/share/rpc-%s", uuid.New().String())
+			o.SockPath = fmt.Sprintf(m.sockPrefix+"rpc-%s", uuid.New().String())
 		}
 		byt, err := json.Marshal(o.Config)
 		if err != nil {

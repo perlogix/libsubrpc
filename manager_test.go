@@ -4,7 +4,7 @@ import "testing"
 
 // TestNewManager func
 func TestNewManager(t *testing.T) {
-	m, err := NewManager()
+	m, err := NewManager("/tmp/")
 	if err != nil {
 		t.Error(err)
 	}
