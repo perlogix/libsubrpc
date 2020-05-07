@@ -2,6 +2,7 @@ package subrpc
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -11,12 +12,12 @@ import (
 
 // Process type represents an RPC service
 type Process struct {
-	SockPath   string
+	Port       int
 	Config     []byte
 	Env        []string
 	RPC        *rpc.Server
 	Token      string
-	ServerSock string
+	ServerPort int
 	Srv        *rpc.Client
 }
 
@@ -33,13 +34,13 @@ func NewProcess() *Process {
 	}
 	p := &Process{
 		Env:        os.Environ(),
-		SockPath:   opts.Socket,
+		Port:       opts.Port,
 		Config:     opts.Config,
 		RPC:        rpc.NewServer(),
 		Token:      opts.Token,
-		ServerSock: opts.ServerSocket,
+		ServerPort: opts.ServerPort,
 	}
-	srv, err := rpc.Dial(p.ServerSock)
+	srv, err := rpc.DialHTTP(fmt.Sprintf("127.0.0.1:%v", opts.ServerPort))
 	if err != nil {
 		panic(err)
 	}
@@ -50,7 +51,7 @@ func NewProcess() *Process {
 
 // Start starts a new process instance
 func (p *Process) Start() error {
-	conn, err := net.Listen("unix", p.SockPath)
+	conn, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%v", p.Port))
 	if err != nil {
 		return err
 	}

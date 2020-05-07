@@ -5,19 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/google/uuid"
 	"github.com/yeticloud/airboss"
 )
 
 // Manager type instantiates a new Manager instance
 type Manager struct {
-	SockPath   string
-	sockPrefix string
+	ServerPort int
 	Procs      map[string]map[string]*ProcessInfo
 	OutBuffer  *bytes.Buffer
 	ErrBuffer  *bytes.Buffer
@@ -35,10 +33,9 @@ type Metrics struct {
 }
 
 // NewManager function returns a new instance of the Manager object
-func NewManager(sockPrefix string) (*Manager, error) {
+func NewManager() (*Manager, error) {
 	m := &Manager{
-		sockPrefix: sockPrefix,
-		SockPath:   fmt.Sprintf(sockPrefix+"rpc-%s", uuid.New().String()),
+		ServerPort: 0,
 		Procs:      make(map[string]map[string]*ProcessInfo),
 		OutBuffer:  bytes.NewBuffer([]byte{}),
 		ErrBuffer:  bytes.NewBuffer([]byte{}),
@@ -47,9 +44,13 @@ func NewManager(sockPrefix string) (*Manager, error) {
 		RPC:        rpc.NewServer(),
 		mgr:        airboss.NewProcessManager(),
 	}
-	conn, err := net.Listen("unix", m.SockPath)
+	conn, err := net.Listen("tcp", "127.0.0.1:")
 	if err != nil {
 		return nil, err
+	}
+	m.ServerPort, err = strconv.Atoi(strings.Split(conn.Addr().String(), ":")[1])
+	if err != nil {
+		return m, nil
 	}
 	go m.RPC.ServeListener(conn)
 	m.RPC.RegisterName("ping", new(ManagerService))
@@ -65,19 +66,18 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 		if o.ExePath == "" {
 			return fmt.Errorf("exepath cannot be blank")
 		}
-		if o.SockPath == "" {
-			o.SockPath = fmt.Sprintf(m.sockPrefix+"rpc-%s", uuid.New().String())
+		if o.Port == 0 {
+			o.Port = findAPort()
 		}
-
 		byt, err := json.Marshal(o.Config)
 		if err != nil {
 			return err
 		}
 		opts := ProcessInput{
-			Socket:       o.SockPath,
-			ServerSocket: m.SockPath,
-			Config:       byt,
-			Token:        o.Token,
+			Port:       o.Port,
+			ServerPort: m.ServerPort,
+			Config:     byt,
+			Token:      o.Token,
 		}
 		bopts, err := json.Marshal(opts)
 		if err != nil {
@@ -99,7 +99,7 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			Options:   o,
 			Running:   false,
 			CMD:       p,
-			SockPath:  o.SockPath,
+			Port:      o.Port,
 			Terminate: make(chan bool),
 		}
 		m.Procs[o.Type][o.Name].CMD.Env = o.Env
@@ -119,7 +119,7 @@ func (m *Manager) StartProcess(name string, typ string) error {
 			go m.log(p)
 			p.PID = p.CMD.PID
 			p.Running = true
-			p.RPC, err = rpc.Dial(p.SockPath)
+			p.RPC, err = rpc.DialHTTP(fmt.Sprintf("127.0.0.1:%v", p.Port))
 			if err != nil {
 				return err
 			}
@@ -169,10 +169,6 @@ func (m *Manager) StopProcess(name string, typ string) error {
 		}
 		p.Running = false
 		p.RPC.Close()
-		err = os.Remove(p.SockPath)
-		if err != nil {
-			return err
-		}
 		return nil
 	}
 	return fmt.Errorf("process with name %s does not exist", name)
@@ -262,4 +258,17 @@ type ManagerService struct{}
 // Ping function
 func (ms *ManagerService) Ping() string {
 	return "pong"
+}
+
+func findAPort() int {
+	start := 8000
+	for {
+		conn, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%v", start))
+		defer conn.Close()
+		if err != nil {
+			start++
+		} else {
+			return start
+		}
+	}
 }
