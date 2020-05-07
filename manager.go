@@ -2,7 +2,6 @@ package subrpc
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -11,8 +10,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/go-cmd/cmd"
 	"github.com/google/uuid"
+	"github.com/yeticloud/airboss"
 )
 
 // Manager type instantiates a new Manager instance
@@ -22,8 +21,10 @@ type Manager struct {
 	Procs      map[string]map[string]*ProcessInfo
 	OutBuffer  *bytes.Buffer
 	ErrBuffer  *bytes.Buffer
+	Errors     chan error
 	Metrics    chan Metrics
 	RPC        *rpc.Server
+	mgr        *airboss.ProcessManager
 }
 
 // Metrics type
@@ -31,6 +32,13 @@ type Metrics struct {
 	URN      string
 	CallTime time.Duration
 	Error    bool
+}
+
+// ProcessInput type
+type ProcessInput struct {
+	Socket       string
+	ServerSocket string
+	Config       []byte
 }
 
 // NewManager function returns a new instance of the Manager object
@@ -41,8 +49,10 @@ func NewManager(sockPrefix string) (*Manager, error) {
 		Procs:      make(map[string]map[string]*ProcessInfo),
 		OutBuffer:  bytes.NewBuffer([]byte{}),
 		ErrBuffer:  bytes.NewBuffer([]byte{}),
+		Errors:     make(chan error, 64),
 		Metrics:    make(chan Metrics, 1024),
 		RPC:        rpc.NewServer(),
+		mgr:        airboss.NewProcessManager(),
 	}
 	conn, err := net.Listen("unix", m.SockPath)
 	if err != nil {
@@ -65,25 +75,40 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 		if o.SockPath == "" {
 			o.SockPath = fmt.Sprintf(m.sockPrefix+"rpc-%s", uuid.New().String())
 		}
+
 		byt, err := json.Marshal(o.Config)
+		if err != nil {
+			return err
+		}
+		opts := ProcessInput{
+			Socket:       o.SockPath,
+			ServerSocket: m.SockPath,
+			Config:       byt,
+		}
+		bopts, err := json.Marshal(opts)
 		if err != nil {
 			return err
 		}
 		if _, ok := m.Procs[o.Type]; !ok {
 			m.Procs[o.Type] = map[string]*ProcessInfo{}
 		}
+		p, err := m.mgr.Fork(o.ExePath)
+		if err != nil {
+			return err
+		}
+		_, err = p.Stdin.Write(bopts)
+		if err != nil {
+			return err
+		}
 		m.Procs[o.Type][o.Name] = &ProcessInfo{
-			Name:    o.Name,
-			Options: o,
-			Running: false,
-			CMD: cmd.NewCmdOptions(cmd.Options{
-				Buffered:  false,
-				Streaming: true,
-			}, o.ExePath, "-socket", o.SockPath, "-serversocket", m.SockPath, "-config", base64.StdEncoding.EncodeToString(byt), "-token", o.Token),
+			Name:      o.Name,
+			Options:   o,
+			Running:   false,
+			CMD:       p,
 			SockPath:  o.SockPath,
 			Terminate: make(chan bool),
 		}
-		m.Procs[o.Type][o.Name].CMD.Env = append(m.Procs[o.Type][o.Name].CMD.Env, o.Env...)
+		m.Procs[o.Type][o.Name].CMD.Env = o.Env
 	}
 	return nil
 }
@@ -93,20 +118,13 @@ func (m *Manager) StartProcess(name string, typ string) error {
 	if p, ok := m.Procs[typ][name]; ok {
 		if !p.Running {
 			var err error
-			p.StatusChan = p.CMD.Start()
-			for i := 0; i <= 10; i++ {
-				if p.CMD.Status().StartTs != 0 {
-					break
-				}
-				time.Sleep(250 * time.Millisecond)
-			}
-			p.PID = p.CMD.Status().PID
+			_, err = p.CMD.Start()
+			p.PID = p.CMD.PID
 			p.Running = true
 			p.RPC, err = rpc.Dial(p.SockPath)
 			if err != nil {
 				return err
 			}
-			go m.supervise(p)
 			go m.log(p)
 			return nil
 		}
@@ -135,15 +153,11 @@ func (m *Manager) StartAllProcess() []error {
 // RestartProcess restarts a process
 func (m *Manager) RestartProcess(name string, typ string) error {
 	if p, ok := m.Procs[typ][name]; ok {
-		err := m.StopProcess(name, typ)
+		_, err := p.CMD.Restart()
 		if err != nil {
 			return err
 		}
-		p.CMD = p.CMD.Clone()
-		err = m.StartProcess(name, typ)
-		if err != nil {
-			return err
-		}
+		p.PID = p.CMD.PID
 		return nil
 	}
 	return fmt.Errorf("process with name %s does not exist", name)
@@ -152,10 +166,13 @@ func (m *Manager) RestartProcess(name string, typ string) error {
 // StopProcess stopps a process by name
 func (m *Manager) StopProcess(name string, typ string) error {
 	if p, ok := m.Procs[typ][name]; ok {
+		err := p.CMD.Stop()
+		if err != nil {
+			return err
+		}
 		p.Running = false
 		p.RPC.Close()
-		p.Terminate <- true
-		err := os.Remove(p.SockPath)
+		err = os.Remove(p.SockPath)
 		if err != nil {
 			return err
 		}
@@ -181,47 +198,25 @@ func (m *Manager) StopAll() []error {
 	return nil
 }
 
-func (m *Manager) supervise(proc *ProcessInfo) {
-	for {
-		select {
-		case <-proc.Terminate:
-			proc.CMD.Stop()
-			return
-		case <-proc.StatusChan:
-			err := m.RestartProcess(proc.Name, proc.Type)
-			if err != nil {
-				fmt.Println(err)
-			}
-			return
-		default:
-			st := proc.CMD.Status()
-			if st.Complete == false && st.Error != nil {
-				err := m.RestartProcess(proc.Name, proc.Type)
-				if err != nil {
-					fmt.Println(err)
-				}
-				return
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-	}
-}
-
 func (m *Manager) log(proc *ProcessInfo) {
 	t := time.NewTicker(100 * time.Millisecond)
 	for range t.C {
 		select {
 		case <-proc.Terminate:
 			return
-		case line := <-proc.CMD.Stdout:
-			_, err := m.OutBuffer.WriteString(line)
+		case e := <-proc.CMD.Errors:
+			m.Errors <- e
+		}
+		if proc.CMD.Stdout.Len() > 0 {
+			_, err := m.OutBuffer.ReadFrom(proc.CMD.Stdout)
 			if err != nil {
-				fmt.Println(err)
+				m.Errors <- err
 			}
-		case line := <-proc.CMD.Stderr:
-			_, err := m.ErrBuffer.WriteString(line)
+		}
+		if proc.CMD.Stderr.Len() > 0 {
+			_, err := m.ErrBuffer.ReadFrom(proc.CMD.Stderr)
 			if err != nil {
-				fmt.Println(err)
+				m.Errors <- err
 			}
 		}
 	}

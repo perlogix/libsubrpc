@@ -2,7 +2,7 @@ package subrpc
 
 import (
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/go-cmd/cmd"
+	"github.com/yeticloud/airboss"
 )
 
 // ProcessOptions allows for passing process options to NewProcess
@@ -13,23 +13,22 @@ type ProcessOptions struct {
 	Handler  interface{}
 	ExePath  string
 	SockPath string
-	Env      []string
+	Env      map[string]string
 	Token    string
 }
 
 // ProcessInfo holds information about running processes
 type ProcessInfo struct {
-	Name       string
-	Type       string
-	Config     map[string]interface{}
-	Token      string
-	Handler    interface{}
-	CMD        *cmd.Cmd
-	Options    ProcessOptions
-	Running    bool
-	StatusChan <-chan cmd.Status
-	Terminate  chan bool
-	PID        int
-	SockPath   string
-	RPC        *rpc.Client
+	Name      string
+	Type      string
+	Config    map[string]interface{}
+	Token     string
+	Handler   interface{}
+	CMD       *airboss.Subprocess
+	Options   ProcessOptions
+	Running   bool
+	Terminate chan bool
+	PID       int
+	SockPath  string
+	RPC       *rpc.Client
 }
