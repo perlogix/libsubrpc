@@ -34,13 +34,6 @@ type Metrics struct {
 	Error    bool
 }
 
-// ProcessInput type
-type ProcessInput struct {
-	Socket       string
-	ServerSocket string
-	Config       []byte
-}
-
 // NewManager function returns a new instance of the Manager object
 func NewManager(sockPrefix string) (*Manager, error) {
 	m := &Manager{
@@ -84,6 +77,7 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			Socket:       o.SockPath,
 			ServerSocket: m.SockPath,
 			Config:       byt,
+			Token:        o.Token,
 		}
 		bopts, err := json.Marshal(opts)
 		if err != nil {

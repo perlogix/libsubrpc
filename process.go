@@ -1,8 +1,8 @@
 package subrpc
 
 import (
-	"encoding/base64"
-	"flag"
+	"encoding/json"
+	"io/ioutil"
 	"net"
 	"os"
 
@@ -22,22 +22,22 @@ type Process struct {
 
 // NewProcess function
 func NewProcess() *Process {
-	s := flag.String("socket", "", "Socket to bind to")
-	c := flag.String("config", "", "Config from plugin manifest")
-	t := flag.String("token", "", "Option for passing in a trust token")
-	u := flag.String("serversocket", "", "Socket the server is listening on")
-	flag.Parse()
-	config, err := base64.StdEncoding.DecodeString(*c)
+	f, err := ioutil.ReadAll(os.Stdin)
+	if err != nil {
+		panic(err)
+	}
+	var opts ProcessInput
+	err = json.Unmarshal(f, &opts)
 	if err != nil {
 		panic(err)
 	}
 	p := &Process{
 		Env:        os.Environ(),
-		SockPath:   *s,
-		Config:     config,
+		SockPath:   opts.Socket,
+		Config:     opts.Config,
 		RPC:        rpc.NewServer(),
-		Token:      *t,
-		ServerSock: *u,
+		Token:      opts.Token,
+		ServerSock: opts.ServerSocket,
 	}
 	srv, err := rpc.Dial(p.ServerSock)
 	if err != nil {

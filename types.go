@@ -32,3 +32,11 @@ type ProcessInfo struct {
 	SockPath  string
 	RPC       *rpc.Client
 }
+
+// ProcessInput type
+type ProcessInput struct {
+	Socket       string
+	ServerSocket string
+	Token        string
+	Config       []byte
+}
