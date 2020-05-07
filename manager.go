@@ -119,7 +119,7 @@ func (m *Manager) StartProcess(name string, typ string) error {
 			go m.log(p)
 			p.PID = p.CMD.PID
 			p.Running = true
-			p.RPC, err = rpc.DialHTTP(fmt.Sprintf("127.0.0.1:%v", p.Port))
+			p.RPC, err = rpc.DialHTTP(fmt.Sprintf("http://127.0.0.1:%v", p.Port))
 			if err != nil {
 				return err
 			}

@@ -40,7 +40,7 @@ func NewProcess() *Process {
 		Token:      opts.Token,
 		ServerPort: opts.ServerPort,
 	}
-	srv, err := rpc.DialHTTP(fmt.Sprintf("127.0.0.1:%v", opts.ServerPort))
+	srv, err := rpc.Dial(fmt.Sprintf("http://127.0.0.1:%v", opts.ServerPort))
 	if err != nil {
 		panic(err)
 	}
