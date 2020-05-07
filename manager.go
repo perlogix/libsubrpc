@@ -113,13 +113,16 @@ func (m *Manager) StartProcess(name string, typ string) error {
 		if !p.Running {
 			var err error
 			_, err = p.CMD.Start()
+			if err != nil {
+				return err
+			}
+			go m.log(p)
 			p.PID = p.CMD.PID
 			p.Running = true
 			p.RPC, err = rpc.Dial(p.SockPath)
 			if err != nil {
 				return err
 			}
-			go m.log(p)
 			return nil
 		}
 		return fmt.Errorf("process %s is already running", name)
