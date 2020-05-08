@@ -37,8 +37,8 @@ type Metrics struct {
 // NewManager function returns a new instance of the Manager object
 func NewManager() (*Manager, error) {
 	m := &Manager{
-		ServerSocket: newSock("/var/run/cave"),
-		SocketDir:    "/var/run/",
+		ServerSocket: newSock("/tmp/cave"),
+		SocketDir:    "/tmp/",
 		Procs:        make(map[string]map[string]*ProcessInfo),
 		OutBuffer:    bytes.NewBuffer([]byte{}),
 		ErrBuffer:    bytes.NewBuffer([]byte{}),
@@ -272,6 +272,6 @@ func (ms *ManagerService) Ping() string {
 }
 
 func newSock(prefix string) string {
-	u := uuid.New().String()[:24]
+	u := uuid.New().String()[24:]
 	return prefix + ".sock." + u
 }
