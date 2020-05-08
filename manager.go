@@ -56,7 +56,7 @@ func NewManager() (*Manager, error) {
 		return nil, err
 	}
 	go m.RPC.ServeListener(conn)
-	m.RPC.RegisterName("ping", new(ManagerService))
+	m.RPC.RegisterName("server", &ManagerService{m: m})
 	return m, nil
 }
 
@@ -104,6 +104,7 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			CMD:       p,
 			Socket:    o.Socket,
 			Terminate: make(chan bool),
+			Alive:     make(chan bool),
 		}
 		m.Procs[o.Type][o.Name].CMD.Env = o.Env
 	}
@@ -122,6 +123,7 @@ func (m *Manager) StartProcess(name string, typ string) error {
 			go m.log(p)
 			p.PID = p.CMD.PID
 			p.Running = true
+			<-p.Alive
 			p.RPC, err = rpc.Dial(p.Socket)
 			if err != nil {
 				return err
@@ -263,11 +265,26 @@ func (m *Manager) Call(urn string, dst interface{}, args ...interface{}) error {
 }
 
 // ManagerService type
-type ManagerService struct{}
+type ManagerService struct {
+	m *Manager
+}
 
 // Ping function
 func (ms *ManagerService) Ping() string {
 	return "pong"
+}
+
+// Alive func
+func (ms *ManagerService) Alive(socket string) {
+	for _, t := range ms.m.Procs {
+		for _, v := range t {
+			if v.Socket == socket {
+				v.Alive <- true
+				return
+			}
+		}
+	}
+	return
 }
 
 func newSock(prefix string) string {

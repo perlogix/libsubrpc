@@ -31,6 +31,7 @@ type ProcessInfo struct {
 	PID       int
 	Socket    string
 	RPC       *rpc.Client
+	Alive     chan bool
 }
 
 // ProcessInput type

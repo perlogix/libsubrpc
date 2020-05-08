@@ -48,6 +48,11 @@ func NewProcess() *Process {
 		panic(err)
 	}
 	p.Srv = srv
+	err = p.Srv.Call(nil, "server_alive", opts.Socket)
+	if err != nil {
+		writeLog(err)
+		panic(err)
+	}
 	p.RPC.RegisterName("ping", new(rpcPing))
 	return p
 }
