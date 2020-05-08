@@ -47,16 +47,11 @@ func NewManager() (*Manager, error) {
 		RPC:          rpc.NewServer(),
 		mgr:          airboss.NewProcessManager(),
 	}
-	f, err := os.Create(m.ServerSocket)
-	if err != nil {
-		return nil, err
-	}
-	err = f.Chmod(0777)
-	if err != nil {
-		return nil, err
-	}
-	f.Close()
 	conn, err := net.Listen("unix", m.ServerSocket)
+	if err != nil {
+		return nil, err
+	}
+	err = os.Chmod(m.ServerSocket, 0777)
 	if err != nil {
 		return nil, err
 	}
@@ -81,15 +76,6 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 		if err != nil {
 			return err
 		}
-		f, err := os.Create(o.Socket)
-		if err != nil {
-			return err
-		}
-		err = f.Chmod(0777)
-		if err != nil {
-			return err
-		}
-		f.Close()
 		opts := ProcessInput{
 			Socket:       o.Socket,
 			ServerSocket: m.ServerSocket,
@@ -137,6 +123,10 @@ func (m *Manager) StartProcess(name string, typ string) error {
 			p.PID = p.CMD.PID
 			p.Running = true
 			p.RPC, err = rpc.Dial(p.Socket)
+			if err != nil {
+				return err
+			}
+			err = os.Chmod(p.Socket, 0777)
 			if err != nil {
 				return err
 			}
