@@ -37,7 +37,7 @@ type Metrics struct {
 // NewManager function returns a new instance of the Manager object
 func NewManager() (*Manager, error) {
 	m := &Manager{
-		ServerSocket: "cave-" + uuid.New().String(),
+		ServerSocket: newSock("/var/run/cave"),
 		SocketDir:    "/var/run/",
 		Procs:        make(map[string]map[string]*ProcessInfo),
 		OutBuffer:    bytes.NewBuffer([]byte{}),
@@ -70,7 +70,7 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			return fmt.Errorf("exepath cannot be blank")
 		}
 		if o.Socket == "" {
-			o.Socket = fmt.Sprintf("%s%s-%s", m.SocketDir, o.Name, uuid.New().String())
+			o.Socket = newSock(m.SocketDir + o.Name)
 		}
 		byt, err := json.Marshal(o.Config)
 		if err != nil {
@@ -269,4 +269,9 @@ type ManagerService struct{}
 // Ping function
 func (ms *ManagerService) Ping() string {
 	return "pong"
+}
+
+func newSock(prefix string) string {
+	u := uuid.New().String()[:24]
+	return prefix + ".sock." + u
 }
