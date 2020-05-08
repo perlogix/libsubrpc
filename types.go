@@ -12,7 +12,7 @@ type ProcessOptions struct {
 	Config  map[string]interface{}
 	Handler interface{}
 	ExePath string
-	Port    int
+	Socket  string
 	Env     map[string]string
 	Token   string
 }
@@ -29,14 +29,14 @@ type ProcessInfo struct {
 	Running   bool
 	Terminate chan bool
 	PID       int
-	Port      int
+	Socket    string
 	RPC       *rpc.Client
 }
 
 // ProcessInput type
 type ProcessInput struct {
-	Port       int
-	ServerPort int
-	Token      string
-	Config     []byte
+	Socket       string
+	ServerSocket string
+	Token        string
+	Config       []byte
 }

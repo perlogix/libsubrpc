@@ -5,24 +5,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"strconv"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/google/uuid"
 	"github.com/yeticloud/airboss"
 )
 
 // Manager type instantiates a new Manager instance
 type Manager struct {
-	ServerPort int
-	Procs      map[string]map[string]*ProcessInfo
-	OutBuffer  *bytes.Buffer
-	ErrBuffer  *bytes.Buffer
-	Errors     chan error
-	Metrics    chan Metrics
-	RPC        *rpc.Server
-	mgr        *airboss.ProcessManager
+	ServerSocket string
+	SocketDir    string
+	Procs        map[string]map[string]*ProcessInfo
+	OutBuffer    *bytes.Buffer
+	ErrBuffer    *bytes.Buffer
+	Errors       chan error
+	Metrics      chan Metrics
+	RPC          *rpc.Server
+	mgr          *airboss.ProcessManager
 }
 
 // Metrics type
@@ -35,22 +37,28 @@ type Metrics struct {
 // NewManager function returns a new instance of the Manager object
 func NewManager() (*Manager, error) {
 	m := &Manager{
-		ServerPort: 0,
-		Procs:      make(map[string]map[string]*ProcessInfo),
-		OutBuffer:  bytes.NewBuffer([]byte{}),
-		ErrBuffer:  bytes.NewBuffer([]byte{}),
-		Errors:     make(chan error, 64),
-		Metrics:    make(chan Metrics, 1024),
-		RPC:        rpc.NewServer(),
-		mgr:        airboss.NewProcessManager(),
+		ServerSocket: "cave-" + uuid.New().String(),
+		SocketDir:    "/var/run/",
+		Procs:        make(map[string]map[string]*ProcessInfo),
+		OutBuffer:    bytes.NewBuffer([]byte{}),
+		ErrBuffer:    bytes.NewBuffer([]byte{}),
+		Errors:       make(chan error, 64),
+		Metrics:      make(chan Metrics, 1024),
+		RPC:          rpc.NewServer(),
+		mgr:          airboss.NewProcessManager(),
 	}
-	conn, err := net.Listen("tcp", "127.0.0.1:")
+	f, err := os.Create(m.ServerSocket)
 	if err != nil {
 		return nil, err
 	}
-	m.ServerPort, err = strconv.Atoi(strings.Split(conn.Addr().String(), ":")[1])
+	err = f.Chmod(0777)
 	if err != nil {
-		return m, nil
+		return nil, err
+	}
+	f.Close()
+	conn, err := net.Listen("unix", m.ServerSocket)
+	if err != nil {
+		return nil, err
 	}
 	go m.RPC.ServeListener(conn)
 	m.RPC.RegisterName("ping", new(ManagerService))
@@ -66,18 +74,27 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 		if o.ExePath == "" {
 			return fmt.Errorf("exepath cannot be blank")
 		}
-		if o.Port == 0 {
-			o.Port = findAPort()
+		if o.Socket == "" {
+			o.Socket = fmt.Sprintf("%s%s-%s", m.SocketDir, o.Name, uuid.New().String())
 		}
 		byt, err := json.Marshal(o.Config)
 		if err != nil {
 			return err
 		}
+		f, err := os.Create(o.Socket)
+		if err != nil {
+			return err
+		}
+		err = f.Chmod(0777)
+		if err != nil {
+			return err
+		}
+		f.Close()
 		opts := ProcessInput{
-			Port:       o.Port,
-			ServerPort: m.ServerPort,
-			Config:     byt,
-			Token:      o.Token,
+			Socket:       o.Socket,
+			ServerSocket: m.ServerSocket,
+			Config:       byt,
+			Token:        o.Token,
 		}
 		bopts, err := json.Marshal(opts)
 		if err != nil {
@@ -99,7 +116,7 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			Options:   o,
 			Running:   false,
 			CMD:       p,
-			Port:      o.Port,
+			Socket:    o.Socket,
 			Terminate: make(chan bool),
 		}
 		m.Procs[o.Type][o.Name].CMD.Env = o.Env
@@ -119,7 +136,7 @@ func (m *Manager) StartProcess(name string, typ string) error {
 			go m.log(p)
 			p.PID = p.CMD.PID
 			p.Running = true
-			p.RPC, err = rpc.DialHTTP(fmt.Sprintf("http://127.0.0.1:%v", p.Port))
+			p.RPC, err = rpc.Dial(p.Socket)
 			if err != nil {
 				return err
 			}
@@ -169,6 +186,10 @@ func (m *Manager) StopProcess(name string, typ string) error {
 		}
 		p.Running = false
 		p.RPC.Close()
+		err = os.Remove(p.Socket)
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 	return fmt.Errorf("process with name %s does not exist", name)
@@ -258,17 +279,4 @@ type ManagerService struct{}
 // Ping function
 func (ms *ManagerService) Ping() string {
 	return "pong"
-}
-
-func findAPort() int {
-	start := 8000
-	for {
-		conn, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%v", start))
-		defer conn.Close()
-		if err != nil {
-			start++
-		} else {
-			return start
-		}
-	}
 }
