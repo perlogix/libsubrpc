@@ -170,7 +170,6 @@ func (m *Manager) RestartProcess(name string, typ string) error {
 // StopProcess stopps a process by name
 func (m *Manager) StopProcess(name string, typ string) error {
 	if p, ok := m.Procs[typ][name]; ok {
-		p.RPC.Close()
 		err := p.CMD.Stop()
 		if err != nil {
 			return err
