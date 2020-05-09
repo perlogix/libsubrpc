@@ -104,7 +104,7 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			CMD:       p,
 			Socket:    o.Socket,
 			Terminate: make(chan bool),
-			Alive:     make(chan bool),
+			Alive:     make(chan bool, 1),
 		}
 		m.Procs[o.Type][o.Name].CMD.Env = o.Env
 	}
@@ -129,7 +129,7 @@ func (m *Manager) StartProcess(name string, typ string) error {
 				case <-p.Alive:
 					break
 				default:
-					time.Sleep(10 * time.Second)
+					time.Sleep(1 * time.Second)
 				}
 			}
 			fmt.Println("got alive")
