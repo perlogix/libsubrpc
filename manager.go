@@ -123,16 +123,7 @@ func (m *Manager) StartProcess(name string, typ string) error {
 			go m.log(p)
 			p.PID = p.CMD.PID
 			p.Running = true
-			fmt.Println("waiting for alive")
-			for i := 0; i < 10; i++ {
-				select {
-				case <-p.Alive:
-					break
-				default:
-					time.Sleep(1 * time.Second)
-				}
-			}
-			fmt.Println("got alive")
+			time.Sleep(5 * time.Second)
 			p.RPC, err = rpc.Dial(p.Socket)
 			if err != nil {
 				return err
@@ -281,19 +272,6 @@ type ManagerService struct {
 // Ping function
 func (ms *ManagerService) Ping() string {
 	return "pong"
-}
-
-// Alive func
-func (ms *ManagerService) Alive(socket string) {
-	for _, t := range ms.m.Procs {
-		for _, v := range t {
-			if v.Socket == socket {
-				v.Alive <- true
-				return
-			}
-		}
-	}
-	return
 }
 
 func newSock(prefix string) string {
