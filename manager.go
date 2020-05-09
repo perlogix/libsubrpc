@@ -98,13 +98,13 @@ func (m *Manager) NewProcess(options ...ProcessOptions) error {
 			return err
 		}
 		m.Procs[o.Type][o.Name] = &ProcessInfo{
-			Name:      o.Name,
-			Options:   o,
-			Running:   false,
-			CMD:       p,
-			Socket:    o.Socket,
-			Terminate: make(chan bool),
-			Alive:     make(chan bool, 1),
+			Name:         o.Name,
+			Options:      o,
+			Running:      false,
+			CMD:          p,
+			Socket:       o.Socket,
+			Terminate:    make(chan bool),
+			StartupDelay: o.StartupDelay,
 		}
 		m.Procs[o.Type][o.Name].CMD.Env = o.Env
 	}
