@@ -123,7 +123,16 @@ func (m *Manager) StartProcess(name string, typ string) error {
 			go m.log(p)
 			p.PID = p.CMD.PID
 			p.Running = true
-			<-p.Alive
+			fmt.Println("waiting for alive")
+			for i := 0; i < 10; i++ {
+				select {
+				case <-p.Alive:
+					break
+				default:
+					time.Sleep(10 * time.Second)
+				}
+			}
+			fmt.Println("got alive")
 			p.RPC, err = rpc.Dial(p.Socket)
 			if err != nil {
 				return err
