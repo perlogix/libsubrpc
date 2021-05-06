@@ -48,7 +48,10 @@ func NewProcess() *Process {
 		panic(err)
 	}
 	p.Srv = srv
-	p.RPC.RegisterName("ping", new(rpcPing))
+	err = p.RPC.RegisterName("ping", new(rpcPing))
+	if err != nil {
+		panic(err)
+	}
 	return p
 }
 
@@ -84,10 +87,16 @@ func (r *rpcPing) Ping() string {
 }
 
 func writeLog(msg ...interface{}) {
-	f, err := os.OpenFile("/tmp/helloworld.log", os.O_APPEND, 0777)
+	f, err := os.OpenFile("./libsubrpc.log", os.O_APPEND, 0600)
 	if err != nil {
 		fmt.Println(err)
 	}
-	f.WriteString(fmt.Sprint(msg...))
-	f.Close()
+	_, err = f.WriteString(fmt.Sprint(msg...))
+	if err != nil {
+		fmt.Println(err)
+	}
+	err = f.Close()
+	if err != nil {
+		fmt.Println(err)
+	}
 }

@@ -51,12 +51,15 @@ func NewManager() (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = os.Chmod(m.ServerSocket, 0777)
+	err = os.Chmod(m.ServerSocket, 0600)
 	if err != nil {
 		return nil, err
 	}
 	go m.RPC.ServeListener(conn)
-	m.RPC.RegisterName("server", &ManagerService{m: m})
+	err = m.RPC.RegisterName("server", &ManagerService{m: m})
+	if err != nil {
+		return m, err
+	}
 	return m, nil
 }
 
@@ -128,7 +131,7 @@ func (m *Manager) StartProcess(name string, typ string) error {
 			if err != nil {
 				return err
 			}
-			err = os.Chmod(p.Socket, 0777)
+			err = os.Chmod(p.Socket, 0600)
 			if err != nil {
 				return err
 			}
@@ -235,7 +238,7 @@ func (m *Manager) Call(urn string, dst interface{}, args ...interface{}) error {
 		m.Metrics <- Metrics{
 			URN:      urn,
 			Error:    true,
-			CallTime: time.Now().Sub(start),
+			CallTime: time.Since(start),
 		}
 		return fmt.Errorf("URN must be in format <type>:<name>:<function>")
 	}
@@ -245,21 +248,21 @@ func (m *Manager) Call(urn string, dst interface{}, args ...interface{}) error {
 			m.Metrics <- Metrics{
 				URN:      urn,
 				Error:    true,
-				CallTime: time.Now().Sub(start),
+				CallTime: time.Since(start),
 			}
 			return err
 		}
 		m.Metrics <- Metrics{
 			URN:      urn,
 			Error:    false,
-			CallTime: time.Now().Sub(start),
+			CallTime: time.Since(start),
 		}
 		return nil
 	}
 	m.Metrics <- Metrics{
 		URN:      urn,
 		Error:    true,
-		CallTime: time.Now().Sub(start),
+		CallTime: time.Since(start),
 	}
 	return fmt.Errorf("service with name %s does not exist", u[0])
 }
